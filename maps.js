@@ -1,72 +1,96 @@
-// DAC & HFTD map eligibility checker
-// Uses CalEnviroScreen 4.0 DAC (SB 535) + CPUC HFTD maps
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SGIP Eligibility & Incentive Calculator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&libraries=places"></script>
+  <script type="module" src="script.js" defer></script>
+</head>
+<body>
+  <h1>Self-Generation Incentive Program (SGIP)</h1>
+  <p style="text-align:center; max-width: 700px; margin: 0 auto; font-size: 1rem;">
+    SGIP offers <strong>up to $1,100/kWh</strong> for storage and <strong>$3,100/kW</strong> for solar, covering 100% of system cost for qualifying low-income homes. Start here to check your eligibility.
+  </p>
 
-let inDAC = false;
-let inFire = false;
+  <div class="container">
+    <div class="calculator">
+      <form id="calcForm">
+        <!-- Address Lookup -->
+        <div>
+          <label for="address">Enter Your Address</label>
+          <input type="text" id="address" placeholder="123 Main St, City, CA" />
+          <small id="map-status">Checking location for DAC and Fire Threat status...</small>
+        </div>
 
-async function fetchGeoJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Failed to fetch GeoJSON");
-  return await res.json();
-}
+        <!-- Embedded Maps -->
+        <div>
+          <details>
+            <summary style="font-weight:bold; margin-bottom:8px;">📍 View DAC & Fire Risk Maps</summary>
+            <iframe style="width:100%; height:400px; border:1px solid #ccc; border-radius:4px; margin-bottom:10px;" src="https://experience.arcgis.com/experience/1c21c53da8de48f1b946f3402fbae55c/page/SB-535-Disadvantaged-Communities/" title="SB 535 DAC Map"></iframe>
+            <iframe style="width:100%; height:400px; border:1px solid #ccc; border-radius:4px; margin-bottom:10px;" src="https://www.arcgis.com/apps/webappviewer/index.html?id=5bdb921d747a46929d9f00dbdb6d0fa2" title="Fire Threat Map"></iframe>
+            <iframe style="width:100%; height:400px; border:1px solid #ccc; border-radius:4px;" src="https://www.arcgis.com/apps/View/index.html?appid=8c1f67adc793434d8b38549c0632d4f1" title="Utility Service Areas"></iframe>
+          </details>
+        </div>
 
-function pointInPolygon(point, polygon) {
-  let [x, y] = point;
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][0], yi = polygon[i][1];
-    const xj = polygon[j][0], yj = polygon[j][1];
-    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
+        <div>
+          <label for="customerType">1. Host Customer Class</label>
+          <select id="customerType">
+            <option value="">Select type</option>
+            <option value="residential-single">Residential Single-Family</option>
+            <option value="residential-multi">Residential Multifamily</option>
+            <option value="commercial">Commercial/Business</option>
+            <option value="industrial">Industrial/Agricultural</option>
+          </select>
+        </div>
 
-function pointInGeoJSON(point, geojson) {
-  const [x, y] = point;
-  for (const feature of geojson.features) {
-    const geom = feature.geometry;
-    if (geom.type === "Polygon") {
-      const coords = geom.coordinates[0];
-      if (pointInPolygon(point, coords)) return true;
-    } else if (geom.type === "MultiPolygon") {
-      for (const polygon of geom.coordinates) {
-        if (pointInPolygon(point, polygon[0])) return true;
-      }
-    }
-  }
-  return false;
-}
+        <div>
+          <label for="programs">2. Qualifying Program Participation</label>
+          <select id="programs">
+            <option value="">Select one</option>
+            <option value="care">CARE/FERA/ESA</option>
+            <option value="sash">SASH / DAC-SASH</option>
+            <option value="income">80% AMI (HUD Verified)</option>
+            <option value="mash">MASH / SOMAH (Multifamily)</option>
+            <option value="none">None</option>
+          </select>
+        </div>
 
-async function checkLocationDACFire(lat, lon) {
-  const statusBox = document.getElementById("map-status");
-  statusBox.textContent = "Checking maps...";
+        <div>
+          <label for="capacity">3. Storage Capacity (kWh)</label>
+          <input type="number" id="capacity" min="0" value="30.6" placeholder="Default 30.6 kWh (3 batteries)" />
+        </div>
 
-  try {
-    const dacUrl = "https://raw.githubusercontent.com/BlackrockDigital/startbootstrap-sb-admin-2/master/maps/sb535-dac.geojson";
-    const fireUrl = "https://raw.githubusercontent.com/BlackrockDigital/startbootstrap-sb-admin-2/master/maps/cpuc-fire-threat.geojson";
+        <div>
+          <label for="solarCapacity">4. Solar PV Capacity (kW)</label>
+          <input type="number" id="solarCapacity" min="0" step="0.1" placeholder="Leave blank to auto-estimate from square footage" />
+        </div>
 
-    const [dacGeo, fireGeo] = await Promise.all([
-      fetchGeoJSON(dacUrl),
-      fetchGeoJSON(fireUrl)
-    ]);
+        <div>
+          <label for="squareFootage">5. Home Square Footage</label>
+          <input type="number" id="squareFootage" min="0" placeholder="e.g., 2000" />
+        </div>
 
-    const point = [lon, lat];
-    inDAC = pointInGeoJSON(point, dacGeo);
-    inFire = pointInGeoJSON(point, fireGeo);
+        <div>
+          <label for="utility">6. Utility Provider</label>
+          <select id="utility">
+            <option value="">Select</option>
+            <option value="sce">SCE</option>
+            <option value="pge">PG&E</option>
+            <option value="scg">SoCalGas</option>
+            <option value="cse">CSE</option>
+            <option value="ladwp">LADWP</option>
+          </select>
+        </div>
 
-    let statusText = [];
-    if (inDAC) statusText.push("✅ DAC eligible");
-    else statusText.push("❌ Not in DAC");
+        <div>
+          <button type="button" id="btnCheck">Calculate Eligibility & Incentive</button>
+        </div>
+      </form>
 
-    if (inFire) statusText.push("✅ Fire Threat Zone");
-    else statusText.push("❌ Not in Fire Threat Zone");
-
-    statusBox.textContent = statusText.join(" | ");
-  } catch (err) {
-    console.error(err);
-    statusBox.textContent = "Map check failed.";
-  }
-}
-
-export { checkLocationDACFire, inDAC, inFire };
+      <div id="result" class="result" style="display:none;"></div>
+    </div>
+  </div>
+</body>
+</html>
