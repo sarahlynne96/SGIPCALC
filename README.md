@@ -1,1 +1,3 @@
-# SGIPCALC
+# SGIP Eligibility & Incentive Calculator
+
+... (omitted for brevity here, already written) ...
